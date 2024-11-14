@@ -97,7 +97,7 @@ class LEDDriverNode(DTROS):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
         # leds pattern queue
-        self._pattern = await (switchboard / "actuator" / "leds" / self._lights_name / "rgba").until_ready()
+        self._pattern = await (switchboard / "actuator" / "lights" / "base" / "pattern").until_ready()
         # ---
         self._loop = asyncio.get_event_loop()
         await self.join()
