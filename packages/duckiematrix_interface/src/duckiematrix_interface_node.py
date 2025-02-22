@@ -10,12 +10,11 @@ from dtps import context
 from dtps_http import RawData
 from duckietown.dtros import DTROS, NodeType
 from duckietown_messages.utils.exceptions import DataDecodingError
-from duckietown_messages.geometry_3d import Transformation
+from duckietown_messages.geometry_3d import Transformation, Twist as DTTwist
 
-from geometry_msgs.msg import Point, Pose, PoseWithCovariance
+from geometry_msgs.msg import Point, Pose, PoseWithCovariance, TwistWithCovariance, Twist
 from nav_msgs.msg import Odometry
 
-from geometry_msgs.msg import Pose, Twist
 from tf.transformations import (
     quaternion_inverse,
     quaternion_multiply,
@@ -39,65 +38,7 @@ class DuckieMatrixInterfaceNode(DTROS):
         self._previous_pose = None
         self._previous_stamp = None
 
-    @staticmethod
-    def compute_twist_from_pose(current_pose: Pose, previous_pose: Pose, dt: float) -> Twist:
-        """
-        Compute a naive twist (linear & angular velocity) from two Pose objects
-        and a time difference using a first-order finite difference.
-
-        :param current_pose: The current Pose.
-        :param previous_pose: The previous Pose.
-        :param dt: Time difference between the poses in seconds.
-        :return: geometry_msgs/Twist representing the estimated velocity.
-        """
-
-        twist = Twist()
-
-        # Guard against division-by-zero or near-zero
-        if dt <= 1.0e-9:
-            # Return a zero Twist if dt is too small
-            return twist
-
-        # --- 1. Compute linear velocity (in world frame) ---
-        dx = current_pose.position.x - previous_pose.position.x
-        dy = current_pose.position.y - previous_pose.position.y
-        dz = current_pose.position.z - previous_pose.position.z
-
-        twist.linear.x = dx / dt
-        twist.linear.y = dy / dt
-        twist.linear.z = dz / dt
-
-        # --- 2. Compute angular velocity ---
-        # Extract quaternions [x, y, z, w]
-        q_current = [
-            current_pose.orientation.x,
-            current_pose.orientation.y,
-            current_pose.orientation.z,
-            current_pose.orientation.w
-        ]
-        q_previous = [
-            previous_pose.orientation.x,
-            previous_pose.orientation.y,
-            previous_pose.orientation.z,
-            previous_pose.orientation.w
-        ]
-
-        # Compute the difference quaternion q_diff = q_prev^-1 * q_current
-        # Then normalize for numerical stability
-        q_inv_prev = quaternion_inverse(q_previous)
-        q_diff = quaternion_multiply(q_inv_prev, q_current)
-
-        # Convert that difference quaternion to Euler angles (roll, pitch, yaw)
-        roll, pitch, yaw = euler_from_quaternion(q_diff)
-
-        # The Euler angles represent the rotation that happened over dt
-        twist.angular.x = roll  / dt
-        twist.angular.y = pitch / dt
-        twist.angular.z = yaw   / dt
-
-        return twist
-
-    async def publish(self, data: RawData):
+    async def publish_pose(self, data: RawData):
         # decode data
         try:
             pose: Transformation = Transformation.from_rawdata(data)  # type: ignore
@@ -115,8 +56,28 @@ class DuckieMatrixInterfaceNode(DTROS):
             pose.rotation.w
         )
 
+        # Update internal state
+        self._previous_pose = pose_ros
+        self._previous_stamp = rospy.Time.now()
+
+    async def publish_twist(self, data: RawData):
+        # decode data
+        try:
+            twist_data = DTTwist.from_rawdata(data)  # Assuming twist data is directly decodable
+        except DataDecodingError as e:
+            self.logerr(f"Failed to decode an incoming message: {e.message}")
+            return
+
+        # Create Twist message
+        twist = Twist()
+        twist.linear.x = twist_data.linear_velocity.x
+        twist.linear.y = twist_data.linear_velocity.y
+        twist.linear.z = twist_data.linear_velocity.z
+        twist.angular.x = twist_data.angular_velocity.x
+        twist.angular.y = twist_data.angular_velocity.y
+        twist.angular.z = twist_data.angular_velocity.z
+
         # Create odometry message
-        # TODO: If you receive a proper timestamp from the incoming data, use it instead of rospy.Time.now()
         current_stamp = rospy.Time.now()
         odom_msg = Odometry(
             header=rospy.Header(
@@ -125,19 +86,11 @@ class DuckieMatrixInterfaceNode(DTROS):
             ),
             child_frame_id='base_link',
             pose=PoseWithCovariance(
-                pose=pose_ros
-            )
+                pose=self._previous_pose
+            ),
+            twist=TwistWithCovariance(
+                twist=twist)
         )
-
-        # Compute the twist if we have a previous pose and timestamp
-        if self._previous_pose is not None and self._previous_stamp is not None:
-            dt = (current_stamp - self._previous_stamp).to_sec()
-            twist = self.compute_twist_from_pose(pose_ros, self._previous_pose, dt)
-            odom_msg.twist.twist = twist
-
-        # Update internal state
-        self._previous_pose = pose_ros
-        self._previous_stamp = current_stamp
 
         # Publish messages
         self._state_pub.publish(odom_msg)
@@ -146,12 +99,14 @@ class DuckieMatrixInterfaceNode(DTROS):
     async def worker(self):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
-        # wheel encoder queue
+        # pose and twist queues
         pose_topic = await (switchboard / "pose").until_ready()
-        rospy.logdebug("Detected pose topic")
+        twist_topic = await (switchboard / "twist").until_ready()
+        rospy.logdebug("Detected pose and twist topics")
         # subscribe
-        await pose_topic.subscribe(self.publish)
-        rospy.logdebug("Subscribed to pose topic")
+        await pose_topic.subscribe(self.publish_pose)
+        await twist_topic.subscribe(self.publish_twist)
+        rospy.logdebug("Subscribed to pose and twist topics")
         
         # ---
         await self.join()
