@@ -31,12 +31,10 @@ class ToFNode(DTROS):
             dt_topic_type=TopicType.DRIVER,
             dt_help="The distance to the closest object detected by the sensor",
         )
-        print("test")
         # user hardware test
         # self._hardware_test = HardwareTestToF(self._sensor_name, self._accuracy)
 
     async def publish(self, data: RawData):
-        print("got data")
         # TODO: only publish if somebody is listening
         # decode data
         try:
@@ -59,14 +57,7 @@ class ToFNode(DTROS):
 
     async def worker(self):
         # create switchboard context
-        print("in the worker")
         switchboard = (await context("switchboard")).navigate(self._robot_name)
-        print("found the switchboard")
-        #queue = switchboard / "sensor" / "time_of_flight" / self._sensor_name / "range"
-        # ToF queue
-        #self.loginfo(
-        #    f'Subscribing to the dtps topic for ToF sensor "{self._sensor_name}": {queue}'
-        #    )
         tof = await (switchboard / "sensor" / "time_of_flight" / self._sensor_name / "range").until_ready(timeout=10)
         self.loginfo("queue ready")
         tof = tof.configure(ContextConfig(patient=True))
