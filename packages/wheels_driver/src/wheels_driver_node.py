@@ -44,6 +44,9 @@ class WheelsDriverNode(DTROS):
         self.pub_wheels_cmd = rospy.Publisher(
             "~wheels_cmd_executed", WheelsCmdStamped, queue_size=1, dt_topic_type=TopicType.DRIVER
         )
+        self.pub_joystick_override = rospy.Publisher(
+            f"/{self._robot_name}/joy_mapper_node/joystick_override", BoolStamped, queue_size=1, dt_topic_type=TopicType.DRIVER
+        )
         # subscribers
         self.sub_topic = rospy.Subscriber("~wheels_cmd", WheelsCmdStamped, self.cmds_cb, queue_size=1)
         self.sub_e_stop = rospy.Subscriber("~emergency_stop", BoolStamped, self.estop_cb, queue_size=1)
@@ -128,6 +131,25 @@ class WheelsDriverNode(DTROS):
         # publish messages
         self.pub_wheels_cmd.publish(executed_msg)
 
+    async def publish_autopilot(self, data: RawData):
+        # TODO: only publish if somebody is listening
+        # decode data
+        try:
+            autopilot: Boolean = Boolean.from_rawdata(data)
+        except DataDecodingError as e:
+            self.logerr(f"Failed to decode an incoming message: {e.message}")
+            return
+        # create ROS message
+        joystick_override_msg: BoolStamped = BoolStamped(
+            header=rospy.Header(
+                # TODO: reuse the timestamp from the incoming message
+                stamp=rospy.Time.now()
+            ),
+            data=autopilot.data
+        )
+        # publish messages
+        self.pub_joystick_override.publish(joystick_override_msg)
+
     async def worker(self):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
@@ -136,12 +158,16 @@ class WheelsDriverNode(DTROS):
         self._pwm = await (switchboard / "actuator" / "wheels" / self._actuator_name / "pwm").until_ready()
         self.loginfo("Waiting for the DTPS queue 'pwm_filtered' to come online")
         pwm_filtered = await (switchboard / "actuator" / "wheels" / self._actuator_name / "pwm_filtered").until_ready()
+        self.loginfo("Waiting for the DTPS queue 'autopilot' to come online")
+        autopilot = await (switchboard / "actuator" / "wheels" / self._actuator_name / "autopilot").until_ready()
         # emergency stop
         self.loginfo("Waiting for the DTPS queue 'estop' to come online")
         self._estop = await (switchboard / "actuator" / "wheels" / self._actuator_name / "estop").until_ready()
         # subscribe
         self.loginfo("Subscribing to the 'pwm_filtered' queue")
         await pwm_filtered.subscribe(self.publish_executed)
+        self.loginfo("Subscribing to the 'autopilot' queue")
+        await autopilot.subscribe(self.publish_autopilot)
         # start publisher
         await asyncio.create_task(self.publisher())
         # ---
