@@ -145,7 +145,7 @@ class WheelsDriverNode(DTROS):
                 # TODO: reuse the timestamp from the incoming message
                 stamp=rospy.Time.now()
             ),
-            data=autopilot.data
+            data=not autopilot.data
         )
         # publish messages
         self.pub_joystick_override.publish(joystick_override_msg)
