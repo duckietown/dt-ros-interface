@@ -38,6 +38,20 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
 
+# Install necessary dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    gpg \
+    dpkg-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Determine architecture
+RUN mkdir -p /etc/ros/rosdep/sources.list.d && \
+    curl -s --compressed "https://ctu-mrs.github.io/ppa-stable/ctu-mrs.gpg" | gpg --dearmor | tee /etc/apt/trusted.gpg.d/ctu-mrs.gpg >/dev/null && \
+    curl -s --compressed -o /etc/apt/sources.list.d/ctu-mrs-stable.list "https://ctu-mrs.github.io/ppa-stable/ctu-mrs-apt.list" && \
+    curl -s --compressed -o /etc/apt/preferences.d/ctu-mrs-stable-preferences "https://ctu-mrs.github.io/ppa-stable/ctu-mrs-ppa-preferences.txt" && \
+    curl -s --compressed -o /etc/ros/rosdep/sources.list.d/ctu-mrs-stable.list "https://ctu-mrs.github.io/ppa-stable/ctu-mrs-$(dpkg-architecture -qDEB_HOST_ARCH).list"
+
 # check build arguments
 RUN dt-args-check \
     "PROJECT_NAME" "${PROJECT_NAME}" \
@@ -123,3 +137,5 @@ LABEL \
 
 # configure pretty-printing
 ENV PRETTYPRINT_EXTRAS_EXCLUDE="ipython_repr_pretty,ipython,django"
+
+# RUN apt-get update && apt-get install -y ros-noetic-libcamera-ros-driver
