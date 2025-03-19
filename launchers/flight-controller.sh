@@ -2,6 +2,9 @@
 
 source /environment.sh
 
+# initialize launch file
+dt-launchfile-init
+
 # YOUR CODE BELOW THIS LINE
 # ----------------------------------------------------------------------------
 
@@ -9,8 +12,12 @@ source /environment.sh
 # NOTE: Use the variable DT_PROJECT_PATH to know the absolute path to your code
 # NOTE: Use `dt-exec COMMAND` to run the main process (blocking process)
 
-roslaunch --wait flight_controller_driver flight_controller_driver_node.launch veh:=$VEHICLE_NAME
-
+# launching app 
+#TODO: find launch file in ROS package
+dt-exec roslaunch ardupilot_driver mavros.launch
 
 # ----------------------------------------------------------------------------
 # YOUR CODE ABOVE THIS LINE
+
+# wait for app to end
+dt-launchfile-join

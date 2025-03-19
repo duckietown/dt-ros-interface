@@ -1,0 +1,30 @@
+<launch>
+  <!-- Define an argument that defaults to the VEHICLE_NAME environment variable -->
+  <arg name="veh" default="$(env VEHICLE_NAME)" />
+  <arg name="robot_hardware" default="$(env ROBOT_HARDWARE)" />
+  <group ns="$(arg veh)">
+    <node pkg="mavros" type="mavros_node" name="mavros" output="screen">
+      <!-- Specify the serial connection to the flight controller -->
+      <param name="fcu_url" value="$(eval 'udp://0.0.0.0:14550@' if arg('robot_hardware') == 'virtual' else '/dev/ttyACM0:921600')" />
+      
+      <!-- Enable GCS proxying by setting the GCS URL (e.g., UDP connection) -->
+      <param name="gcs_url" value="tcp-l://" />
+      
+      <param name="target_system_id" value="1" />
+      <param name="target_component_id" value="1" />
+
+      <!-- Load additional MAVROS configurations from YAML file -->
+      <rosparam command="load" file="$(find mavros)/launch/apm_config.yaml" />
+      <remap from="~/battery" to="flight_controller_node/battery" />
+      <!-- Remap topics -->
+      <remap from="~/rc/override" to="flight_controller_node/commands" />
+      <remap from="~/rc/in" to="flight_controller_node/commands/executed" />
+      <remap from="~/state" to="flight_controller_node/mode/current" />
+      <remap from="~/imu/data" to="imu_node/data" />
+
+      <!-- Remap services -->
+      <remap from="~/set_mode" to="flight_controller_node/set_mode" />
+      <remap from="~/cmd/arming" to="flight_controller_node/arm" />
+    </node>
+  </group>
+</launch>

@@ -1,2 +1,4 @@
 # LIST YOUR APT PACKAGES HERE
 ros-noetic-libcamera-ros-driver
+ros-noetic-mavros
+ros-noetic-mavros-extras
