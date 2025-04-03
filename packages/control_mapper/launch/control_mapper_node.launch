@@ -1,0 +1,11 @@
+<launch>
+  <arg name="veh"/>
+  <arg name="pkg_name" value="control_mapper"/>
+  <arg name="node_name" default="control_mapper_node"/>
+  <arg name="required" default="false" />
+
+  <group ns="$(arg veh)">
+    <node name="control_mapper_node" pkg="$(arg pkg_name)" type="$(arg node_name).py" output="screen" required="$(arg required)">
+    </node>
+  </group>
+</launch>
