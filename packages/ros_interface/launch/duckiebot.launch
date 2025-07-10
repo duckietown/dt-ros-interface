@@ -55,4 +55,14 @@
         <arg name="veh" value="$(arg veh)"/>
     </include>
 
+    <!-- Control mapper node -->
+    <include file="$(find control_mapper)/launch/control_mapper_node.launch">
+        <arg name="veh" value="$(arg veh)"/>
+    </include>
+
+    <!-- Image relayer -->
+    <include file="$(find image_relayer)/launch/image_relayer_node.launch">
+        <arg name="veh" value="$(arg veh)"/>
+    </include>
+
 </launch>
