@@ -2,4 +2,5 @@
 # NOTE: only place non-Duckietown libraries here; pin versions only if necessary
 
 # Duckietown messages
-git+https://github.com/duckietown/duckietown-messages.git@main
+duckietown-messages==0.0.24
+dtps-http==1.4.0
