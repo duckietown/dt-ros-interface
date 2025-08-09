@@ -13,6 +13,8 @@ from duckietown.dtros import DTROS, NodeType, TopicType
 from duckietown_messages.sensors.range import Range
 from duckietown_messages.utils.exceptions import DataDecodingError
 
+from tof_hardware_test import TOFHardwareTest
+
 MAX_RANGE = 99  # meters
 
 
@@ -31,8 +33,6 @@ class ToFNode(DTROS):
             dt_topic_type=TopicType.DRIVER,
             dt_help="The distance to the closest object detected by the sensor",
         )
-        # user hardware test
-        # self._hardware_test = HardwareTestToF(self._sensor_name, self._accuracy)
 
     async def publish(self, data: RawData):
         # TODO: only publish if somebody is listening
@@ -59,10 +59,10 @@ class ToFNode(DTROS):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
         tof = await (switchboard / "sensor" / "time_of_flight" / self._sensor_name / "range").until_ready(timeout=10)
-        self.loginfo("queue ready")
         tof = tof.configure(ContextConfig(patient=True))
-        self.loginfo("Subscribed")
-        # subscribe
+        # tests
+        TOFHardwareTest(self, self._sensor_name)
+        # subscriptions
         await tof.subscribe(self.publish)
         # ---
         await self.join()

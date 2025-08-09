@@ -12,10 +12,12 @@ from dtps_http import RawData
 from duckietown_messages.sensors.button_event import ButtonEvent
 from duckietown_messages.utils.exceptions import DataDecodingError
 
+from button_hardware_test import ButtonHardwareTest
+
 
 class ButtonDriverNode(DTROS):
 
-    def __init__(self, button_name="interaction"):
+    def __init__(self, button_name="interaction_plate"):
         super(ButtonDriverNode, self).__init__(
             node_name="button_driver_node",
             node_type=NodeType.DRIVER
@@ -51,10 +53,15 @@ class ButtonDriverNode(DTROS):
     async def worker(self):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
-        # wait for the button queue to be ready
-        button = await (switchboard / "sensor" / "power-button" / self._button_name).until_ready()
-        # subscribe
-        await button.subscribe(self.publish)
+        # queues
+        event_queue = await (switchboard / "sensor" / "power_button" / self._button_name / "event").until_ready()
+        test_in_queue = await (switchboard / "sensor" / "power_button" / self._button_name / "test" / "in").until_ready()
+        test_out_queue = await (switchboard / "sensor" / "power_button" / self._button_name / "test" / "out").until_ready()
+        # tests
+        button_hardware_test = ButtonHardwareTest(self, test_in_queue)
+        # subscriptions
+        await event_queue.subscribe(self.publish)
+        await test_out_queue.subscribe(button_hardware_test.cb_data)
         # ---
         await self.join()
 

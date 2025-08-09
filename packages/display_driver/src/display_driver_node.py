@@ -16,6 +16,8 @@ from duckietown_messages.actuators.display_fragments import DisplayFragments
 from duckietown_messages.geometry_2d.roi import ROI
 from duckietown_messages.sensors.image import Image
 
+from display_hardware_test import DisplayHardwareTest
+
 
 class DisplayDriverNode(DTROS):
 
@@ -34,7 +36,7 @@ class DisplayDriverNode(DTROS):
             dt_help="Data to display on the display",
         )
         # dtps publishers
-        self._fragments: Optional[DTPSContext] = None
+        self._fragments_queue: Optional[DTPSContext] = None
         # event loop
         self._loop: Optional[AbstractEventLoop] = None
 
@@ -77,13 +79,19 @@ class DisplayDriverNode(DTROS):
         # schedule the message for publishing
         # TODO: evaluate the efficiency of this approach, alternatively, use a coro that runs at 30Hz and keep
         #  publishing from a shared variable
-        asyncio.run_coroutine_threadsafe(self._fragments.publish(raw), self._loop)
+        asyncio.run_coroutine_threadsafe(self._fragments_queue.publish(raw), self._loop)
 
     async def worker(self):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
-        # display fragments
-        self._fragments = await (switchboard / "actuator" / "display" / self._display_name / "fragments").until_ready()
+        # queues
+        self._fragments_queue = await (switchboard / "actuator" / "display" / self._display_name / "fragments").until_ready()
+        test_in_queue = await (switchboard / "actuator" / "display" / self._display_name / "test" / "in").until_ready()
+        test_out_queue = await (switchboard / "actuator" / "display" / self._display_name / "test" / "out").until_ready()
+        # tests
+        display_hardware_test = DisplayHardwareTest(self, test_in_queue)
+        # subscriptions
+        await test_out_queue.subscribe(display_hardware_test.cb_data)
         # ---
         self._loop = asyncio.get_event_loop()
         await self.join()

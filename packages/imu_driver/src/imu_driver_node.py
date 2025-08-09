@@ -22,6 +22,8 @@ from dtps_http import RawData
 from duckietown.dtros import DTROS, NodeType
 from duckietown_messages.utils.exceptions import DataDecodingError
 
+from imu_hardware_test import IMUHardwareTest
+
 
 class IMUNode(DTROS):
     def __init__(self, imu_name: str = "base"):
@@ -34,12 +36,10 @@ class IMUNode(DTROS):
         self.pub_imu_raw = rospy.Publisher('~raw', ROSImu, queue_size=10)
         if self._robot_type == RobotType.DUCKIEDRONE:
             self.pub_imu_data = rospy.Publisher('~data', ROSImu, queue_size=10)
-        
+
         if self._robot_type == RobotType.DUCKIEBOT:
             self.pub_therm = rospy.Publisher('~temperature', ROSTemperature, queue_size=10)
 
-        # user hardware test
-        # self._hardware_test = HardwareTestIMU()
         self._switchboard : Optional[DTPSContext] = None
 
         # ---
@@ -91,7 +91,7 @@ class IMUNode(DTROS):
     async def _publish_temperature(self, data: RawData):
         # Decode data
         temperature_data : Temperature = Temperature.from_rawdata(data)
-            
+
         # create temperature message
         therm_msg: ROSTemperature = ROSTemperature(
             header=rospy.Header(
@@ -101,7 +101,7 @@ class IMUNode(DTROS):
             temperature=temperature_data.data
         )
         self.pub_therm.publish(therm_msg)
-        
+
     async def worker(self):
         # create switchboard context
         self._switchboard = (await context("switchboard")).navigate(self._robot_name)
@@ -110,15 +110,16 @@ class IMUNode(DTROS):
         if self._robot_type == RobotType.DUCKIEDRONE:
             imu_queue = await (self._switchboard / "sensor" / "imu" / self._imu_name / "data").until_ready()
         else:
-            imu_queue = await (self._switchboard / "sensor" / "imu" / self._imu_name / "data_raw").until_ready()
-
-        # subscribe
+            imu_queue = await (self._switchboard / "sensor" / "imu" / self._imu_name / "all").until_ready()
+        # tests
+        IMUHardwareTest(self)
+        # subscriptions
         await imu_queue.configure(ContextConfig(patient=True)).subscribe(
             self._publish_imu
         )
         # ---
         await self.join()
-        
+
     async def worker_temperature(self):
         # The duckiebot has a temperature sensor
         temperature_queue = await (self._switchboard / "sensor" / "imu" / self._imu_name / "temperature").until_ready()
@@ -128,7 +129,7 @@ class IMUNode(DTROS):
         )
 
         await self.join()
-        
+
 
     async def join(self):
         while not self.is_shutdown:
@@ -146,7 +147,7 @@ class IMUNode(DTROS):
         futures = [self.worker(),]
         if self._robot_type == RobotType.DUCKIEBOT:
             futures.append(self.worker_temperature())
-        
+
         await asyncio.gather(*futures)
 
     def on_shutdown(self):

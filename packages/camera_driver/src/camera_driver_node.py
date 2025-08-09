@@ -16,6 +16,8 @@ from duckietown_messages.calibrations.camera_intrinsic import CameraIntrinsicCal
 from duckietown_messages.sensors.compressed_image import CompressedImage
 from duckietown_messages.utils.exceptions import DataDecodingError
 
+from camera_hardware_test import CameraHardwareTest
+
 
 class CameraNode(DTROS):
     """
@@ -133,12 +135,12 @@ class CameraNode(DTROS):
             self.logerr(f"Failed to decode an incoming message: {e.message}")
             self.logwarn("Camera information not available yet.")
             return
-        
+
         if self.camera_info is None:
             self.log("Received camera information.")
 
         self.camera_info = camera
-        
+
     async def worker(self):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
@@ -151,14 +153,15 @@ class CameraNode(DTROS):
         jpeg = jpeg.configure(ContextConfig(patient=True))
         parameters = parameters.configure(ContextConfig(patient=True))
         info.configure(ContextConfig(patient=True))
-        
-        # subscribe
+        # tests
+        CameraHardwareTest(self)
+        # subscriptions
         await info.subscribe(self.save_camera_info)
         await parameters.subscribe(self.save_camera_intrinsics)
         await jpeg.subscribe(self.publish)
         # ---
         await self.join()
-    
+
     async def join(self):
         while not self.is_shutdown:
             await asyncio.sleep(1)

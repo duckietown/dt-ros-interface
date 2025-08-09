@@ -5,6 +5,7 @@ from math import pi
 
 import rospy
 import tf
+import uuid
 from duckietown_msgs.msg import WheelEncoderStamped
 from geometry_msgs.msg import TransformStamped, Transform, Quaternion
 from tf2_ros import TransformBroadcaster
@@ -15,6 +16,8 @@ from dtps_http import RawData
 from duckietown.dtros import DTROS, TopicType, NodeType
 from duckietown_messages.standard.integer import Integer
 from duckietown_messages.utils.exceptions import DataDecodingError
+
+from wheel_encoder_hardware_test import WheelEncoderHardwareTest
 
 RESOLUTION: int = 135
 
@@ -43,8 +46,6 @@ class WheelEncoderNode(DTROS):
         )
         # tf broadcaster for wheel frame
         self._tf_broadcaster = TransformBroadcaster()
-        # user hardware test
-        # self._hardware_test = HardwareTestWheelEncoder(wheel_side=self._wheel)
         # ---
         self.loginfo("Initialized.")
 
@@ -90,7 +91,9 @@ class WheelEncoderNode(DTROS):
         switchboard = (await context("switchboard")).navigate(self._robot_name)
         # wheel encoder queue
         encoder = await (switchboard / "sensor" / "wheel_encoder" / self._wheel / "ticks").until_ready()
-        # subscribe
+        # tests
+        WheelEncoderHardwareTest(self, self._wheel)
+        # subscriptions
         await encoder.subscribe(self.publish)
         # ---
         await self.join()

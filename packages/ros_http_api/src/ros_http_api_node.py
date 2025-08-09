@@ -21,6 +21,9 @@ from dt_ros_api.knowledge_base import KnowledgeBase
 from dt_ros_api.constants import is_infra_node, is_infra_topic
 from dt_ros_api import ROS_HTTP_API
 
+from duckiebattery_hardware_test import DuckiebatteryHardwareTest
+from wifi_dongle_hardware_test import WiFiDongleHardwareTest
+
 ROS_HTTP_API_PORT = 8084
 
 
@@ -90,6 +93,9 @@ class ROS_HTTP_API_Node(DTROS):
         KnowledgeBase.register_provider('/node/list/', self._graph_provider)
         KnowledgeBase.register_provider('/node/topics/', self._graph_provider)
         KnowledgeBase.register_provider('/node/services/', self._graph_provider)
+        # tests
+        DuckiebatteryHardwareTest(self)
+        WiFiDongleHardwareTest(self)
 
     @staticmethod
     def _diagnostics_node_cb(data):
