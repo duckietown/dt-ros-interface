@@ -32,7 +32,7 @@ class ToFNode(DTROS):
             dt_help="The distance to the closest object detected by the sensor",
         )
         # user hardware test
-        # self._hardware_test = HardwareTestToF(self._sensor_name, self._accuracy)
+        # self._hardware_test = TOFHardwareTest(self._sensor_name, self._accuracy)
 
     async def publish(self, data: RawData):
         # TODO: only publish if somebody is listening

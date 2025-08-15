@@ -5,7 +5,7 @@ from dt_duckiebot_hardware_tests import HardwareTest, HardwareTestJsonParamType
 from tof_accuracy import ToFAccuracy
 
 
-class HardwareTestToF(HardwareTest):
+class TOFHardwareTest(HardwareTest):
     def __init__(self, sensor_name: str, accuracy: ToFAccuracy) -> None:
         super().__init__()
         # attr
