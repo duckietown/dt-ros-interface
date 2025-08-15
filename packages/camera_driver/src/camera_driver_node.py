@@ -5,7 +5,7 @@ from typing import Optional
 
 import rospy
 from duckietown.dtros import DTROS, NodeType, TopicType
-# from hardware_test_camera import HardwareTestCamera
+# from camera_hardware_test import CameraHardwareTest
 from sensor_msgs.msg import CompressedImage as ROSCompressedImage, CameraInfo as ROSCameraInfo
 
 from dt_robot_utils import get_robot_name
@@ -37,7 +37,7 @@ class CameraNode(DTROS):
         self._robot_name = get_robot_name()
         self._camera_name = camera_name
         # user hardware test
-        # self._hardware_test = HardwareTestCamera()
+        # self._hardware_test = CameraHardwareTest()
         self.camera_info: Optional[Camera] = None
         self.camera_intrinsics: Optional[CameraIntrinsicCalibration] = None
 
@@ -133,12 +133,12 @@ class CameraNode(DTROS):
             self.logerr(f"Failed to decode an incoming message: {e.message}")
             self.logwarn("Camera information not available yet.")
             return
-        
+
         if self.camera_info is None:
             self.log("Received camera information.")
 
         self.camera_info = camera
-        
+
     async def worker(self):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
@@ -151,14 +151,14 @@ class CameraNode(DTROS):
         jpeg = jpeg.configure(ContextConfig(patient=True))
         parameters = parameters.configure(ContextConfig(patient=True))
         info.configure(ContextConfig(patient=True))
-        
+
         # subscribe
         await info.subscribe(self.save_camera_info)
         await parameters.subscribe(self.save_camera_intrinsics)
         await jpeg.subscribe(self.publish)
         # ---
         await self.join()
-    
+
     async def join(self):
         while not self.is_shutdown:
             await asyncio.sleep(1)

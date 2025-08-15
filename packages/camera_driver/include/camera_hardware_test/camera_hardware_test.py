@@ -3,7 +3,7 @@ import rospy
 from dt_duckiebot_hardware_tests import HardwareTest, HardwareTestJsonParamType
 
 
-class HardwareTestCamera(HardwareTest):
+class CameraHardwareTest(HardwareTest):
     def __init__(self) -> None:
         super().__init__()
 
