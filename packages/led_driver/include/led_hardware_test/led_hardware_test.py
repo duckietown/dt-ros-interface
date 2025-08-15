@@ -8,7 +8,7 @@ from rgb_led import RGB_LED
 from dt_duckiebot_hardware_tests import HardwareTest, HardwareTestJsonParamType
 
 
-class HardwareTestLED(HardwareTest):
+class LEDHardwareTest(HardwareTest):
     def __init__(
         self,
         driver: RGB_LED,
