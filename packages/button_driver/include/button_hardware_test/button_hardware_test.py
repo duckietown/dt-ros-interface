@@ -4,7 +4,7 @@ from button_driver import ButtonDriver
 from dt_duckiebot_hardware_tests import HardwareTest, HardwareTestJsonParamType
 
 
-class HardwareTestButton(HardwareTest):
+class ButtonHardwareTest(HardwareTest):
     def __init__(
         self,
         driver: ButtonDriver,
