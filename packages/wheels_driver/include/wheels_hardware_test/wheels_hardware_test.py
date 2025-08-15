@@ -11,7 +11,7 @@ class HardwareTestMotorSide(Enum):
     RIGHT = auto()
 
 
-class HardwareTestMotor(HardwareTest):
+class WheelsHardwareTest(HardwareTest):
     def __init__(
         self,
         wheel_side: "HardwareTestMotorSide",

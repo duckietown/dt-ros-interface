@@ -48,8 +48,8 @@ class WheelsDriverNode(DTROS):
         self.sub_topic = rospy.Subscriber("~wheels_cmd", WheelsCmdStamped, self.cmds_cb, queue_size=1)
         self.sub_e_stop = rospy.Subscriber("~emergency_stop", BoolStamped, self.estop_cb, queue_size=1)
         # user hardware tests
-        # self._hardware_test_left = HardwareTestMotor(HardwareTestMotorSide.LEFT, self.driver)
-        # self._hardware_test_right = HardwareTestMotor(HardwareTestMotorSide.RIGHT, self.driver)
+        # self._hardware_test_left = WheelsHardwareTest(HardwareTestMotorSide.LEFT, self.driver)
+        # self._hardware_test_right = WheelsHardwareTest(HardwareTestMotorSide.RIGHT, self.driver)
         # dtps publishers
         self._pwm: Optional[DTPSContext] = None
         self._estop: Optional[DTPSContext] = None
