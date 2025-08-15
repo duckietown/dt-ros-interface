@@ -30,7 +30,7 @@ class OLEDDisplayTestRenderer(MonoImageFragmentRenderer):
         self.data[:, :] = contents
 
 
-class HardwareTestOledDisplay(HardwareTest):
+class DisplayHardwareTest(HardwareTest):
     def __init__(
         self,
         fn_show_test_display: Callable[[DisplayFragmentMsg], None],
