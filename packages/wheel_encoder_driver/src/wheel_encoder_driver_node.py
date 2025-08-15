@@ -44,7 +44,7 @@ class WheelEncoderNode(DTROS):
         # tf broadcaster for wheel frame
         self._tf_broadcaster = TransformBroadcaster()
         # user hardware test
-        # self._hardware_test = HardwareTestWheelEncoder(wheel_side=self._wheel)
+        # self._hardware_test = WheelEncoderHardwareTest(wheel_side=self._wheel)
         # ---
         self.loginfo("Initialized.")
 

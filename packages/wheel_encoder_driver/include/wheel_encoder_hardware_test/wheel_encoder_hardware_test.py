@@ -3,7 +3,7 @@ import rospy
 from dt_duckiebot_hardware_tests import HardwareTest, HardwareTestJsonParamType
 
 
-class HardwareTestWheelEncoder(HardwareTest):
+class WheelEncoderHardwareTest(HardwareTest):
     def __init__(self, wheel_side: str) -> None:
         super().__init__()
         # attr
