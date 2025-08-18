@@ -16,6 +16,8 @@ from duckietown_messages.actuators.differential_pwm import DifferentialPWM
 from duckietown_messages.standard.boolean import Boolean
 from duckietown_messages.utils.exceptions import DataDecodingError
 
+from hardware_test_wheels import HardwareTestMotor
+
 
 class WheelsDriverNode(DTROS):
     """
@@ -47,9 +49,6 @@ class WheelsDriverNode(DTROS):
         # subscribers
         self.sub_topic = rospy.Subscriber("~wheels_cmd", WheelsCmdStamped, self.cmds_cb, queue_size=1)
         self.sub_e_stop = rospy.Subscriber("~emergency_stop", BoolStamped, self.estop_cb, queue_size=1)
-        # user hardware tests
-        # self._hardware_test_left = HardwareTestMotor(HardwareTestMotorSide.LEFT, self.driver)
-        # self._hardware_test_right = HardwareTestMotor(HardwareTestMotorSide.RIGHT, self.driver)
         # dtps publishers
         self._pwm: Optional[DTPSContext] = None
         self._estop: Optional[DTPSContext] = None
@@ -131,17 +130,25 @@ class WheelsDriverNode(DTROS):
     async def worker(self):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
-        # wheels PWM signal
+        # wait for the queues to be ready
         self.loginfo("Waiting for the DTPS queue 'pwm' to come online")
         self._pwm = await (switchboard / "actuator" / "wheels" / self._actuator_name / "pwm").until_ready()
         self.loginfo("Waiting for the DTPS queue 'pwm_filtered' to come online")
         pwm_filtered = await (switchboard / "actuator" / "wheels" / self._actuator_name / "pwm_filtered").until_ready()
-        # emergency stop
         self.loginfo("Waiting for the DTPS queue 'estop' to come online")
         self._estop = await (switchboard / "actuator" / "wheels" / self._actuator_name / "estop").until_ready()
+        test_left_in_queue = await (switchboard / "actuator" / "wheels" / self._actuator_name / "test" / "left" / "in").until_ready()
+        test_left_out_queue = await (switchboard / "actuator" / "wheels" / self._actuator_name / "test" / "left" / "out").until_ready()
+        test_right_in_queue = await (switchboard / "actuator" / "wheels" / self._actuator_name / "test" / "right" / "in").until_ready()
+        test_right_out_queue = await (switchboard / "actuator" / "wheels" / self._actuator_name / "test" / "right" / "out").until_ready()
+        # create hardware tests
+        hardware_test_left_motor = HardwareTestMotor(self, "left", test_left_in_queue)
+        hardware_test_right_motor = HardwareTestMotor(self, "right", test_right_in_queue)
         # subscribe
         self.loginfo("Subscribing to the 'pwm_filtered' queue")
         await pwm_filtered.subscribe(self.publish_executed)
+        await test_left_out_queue.subscribe(hardware_test_left_motor.cb_data)
+        await test_right_out_queue.subscribe(hardware_test_right_motor.cb_data)
         # start publisher
         await asyncio.create_task(self.publisher())
         # ---
