@@ -10,7 +10,6 @@ from dtps.ergo_ui import ContextConfig, DTPSContext
 import rospy
 
 from geometry_msgs.msg import Vector3, Quaternion
-# from hardware_test_imu import HardwareTestIMU
 from sensor_msgs.msg import (
     Imu as ROSImu,
     Temperature as ROSTemperature
@@ -21,6 +20,8 @@ from dtps import context
 from dtps_http import RawData
 from duckietown.dtros import DTROS, NodeType
 from duckietown_messages.utils.exceptions import DataDecodingError
+
+from hardware_test_imu import HardwareTestIMU
 
 
 class IMUNode(DTROS):
@@ -38,8 +39,6 @@ class IMUNode(DTROS):
         if self._robot_type == RobotType.DUCKIEBOT:
             self.pub_therm = rospy.Publisher('~temperature', ROSTemperature, queue_size=10)
 
-        # user hardware test
-        # self._hardware_test = HardwareTestIMU()
         self._switchboard : Optional[DTPSContext] = None
 
         # ---
@@ -106,12 +105,13 @@ class IMUNode(DTROS):
         # create switchboard context
         self._switchboard = (await context("switchboard")).navigate(self._robot_name)
 
-        # IMU queue
+        # wait for the queue to be ready
         if self._robot_type == RobotType.DUCKIEDRONE:
             imu_queue = await (self._switchboard / "sensor" / "imu" / self._imu_name / "data").until_ready()
         else:
-            imu_queue = await (self._switchboard / "sensor" / "imu" / self._imu_name / "data_raw").until_ready()
-
+            imu_queue = await (self._switchboard / "sensor" / "imu" / self._imu_name / "all").until_ready()
+        # create hardware test
+        HardwareTestIMU(self)
         # subscribe
         await imu_queue.configure(ContextConfig(patient=True)).subscribe(
             self._publish_imu
