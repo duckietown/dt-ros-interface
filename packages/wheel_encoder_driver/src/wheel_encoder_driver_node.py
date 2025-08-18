@@ -16,6 +16,8 @@ from duckietown.dtros import DTROS, TopicType, NodeType
 from duckietown_messages.standard.integer import Integer
 from duckietown_messages.utils.exceptions import DataDecodingError
 
+from hardware_test_wheel_encoder import HardwareTestWheelEncoder
+
 RESOLUTION: int = 135
 
 
@@ -43,8 +45,6 @@ class WheelEncoderNode(DTROS):
         )
         # tf broadcaster for wheel frame
         self._tf_broadcaster = TransformBroadcaster()
-        # user hardware test
-        # self._hardware_test = HardwareTestWheelEncoder(wheel_side=self._wheel)
         # ---
         self.loginfo("Initialized.")
 
@@ -88,8 +88,10 @@ class WheelEncoderNode(DTROS):
     async def worker(self):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
-        # wheel encoder queue
+        # wait for the queue to be ready
         encoder = await (switchboard / "sensor" / "wheel_encoder" / self._wheel / "ticks").until_ready()
+        # create hardware tests
+        HardwareTestWheelEncoder(self, self._wheel)
         # subscribe
         await encoder.subscribe(self.publish)
         # ---
