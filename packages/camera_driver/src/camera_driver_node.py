@@ -5,7 +5,6 @@ from typing import Optional
 
 import rospy
 from duckietown.dtros import DTROS, NodeType, TopicType
-# from hardware_test_camera import HardwareTestCamera
 from sensor_msgs.msg import CompressedImage as ROSCompressedImage, CameraInfo as ROSCameraInfo
 
 from dt_robot_utils import get_robot_name
@@ -15,6 +14,8 @@ from duckietown_messages.sensors.camera import Camera
 from duckietown_messages.calibrations.camera_intrinsic import CameraIntrinsicCalibration
 from duckietown_messages.sensors.compressed_image import CompressedImage
 from duckietown_messages.utils.exceptions import DataDecodingError
+
+from hardware_test_camera import HardwareTestCamera
 
 
 class CameraNode(DTROS):
@@ -142,7 +143,7 @@ class CameraNode(DTROS):
     async def worker(self):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
-        # wait for camera to be ready
+        # wait for the queues to be ready
         jpeg = await (switchboard / "sensor" / "camera" / self._camera_name / "jpeg").until_ready()
         parameters = await (switchboard / "sensor" / "camera" / self._camera_name / "parameters").until_ready()
         info = await (switchboard / "sensor" / "camera" / self._camera_name / "info").until_ready()
@@ -151,7 +152,8 @@ class CameraNode(DTROS):
         jpeg = jpeg.configure(ContextConfig(patient=True))
         parameters = parameters.configure(ContextConfig(patient=True))
         info.configure(ContextConfig(patient=True))
-        
+        # create hardware test
+        HardwareTestCamera(self)
         # subscribe
         await info.subscribe(self.save_camera_info)
         await parameters.subscribe(self.save_camera_intrinsics)
