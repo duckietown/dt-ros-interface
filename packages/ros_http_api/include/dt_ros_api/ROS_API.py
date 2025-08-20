@@ -9,6 +9,7 @@ from .actions.param import rosparam
 from .actions.service import rosservice
 from .actions.graph import rosgraph
 from .actions.bag import rosbag
+from .actions.logs import roslogs
 
 
 class ROS_HTTP_API(Flask):
@@ -21,6 +22,7 @@ class ROS_HTTP_API(Flask):
         self.register_blueprint(rosservice)
         self.register_blueprint(rosgraph)
         self.register_blueprint(rosbag)
+        self.register_blueprint(roslogs)
         # register a blueprint for the duckiematrix API
         #   NOTE: Make sure that this import is always executed after rospy.init_node,
         #         some actions spin up publishers/subscribers.

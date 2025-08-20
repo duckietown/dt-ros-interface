@@ -1,35 +1,24 @@
-import rospy
+from typing import Any
 
-from button_driver import ButtonDriver
-from dt_duckiebot_hardware_tests import HardwareTest, HardwareTestJsonParamType
+from dtps import DTPSContext
+from duckiebot_hardware_test_ros_interface import AbstractHardwareTestROSInterface
 
 
-class HardwareTestButton(HardwareTest):
-    def __init__(
-        self,
-        driver: ButtonDriver,
-        led_blink_secs: int = 3,
-        led_blink_hz: int = 1,
-    ) -> None:
-        super().__init__()
+class HardwareTestButton(AbstractHardwareTestROSInterface):
+    led_blink_hz: int
+    led_blink_secs: int
 
-        # attr
-        self._driver = driver
-        self._button_released = False
-
-        # test settings
+    def __init__(self, node: Any, test_in_queue: DTPSContext, test_id: str = "Top button", test_timeout: int = 60, led_blink_secs: int = 3, led_blink_hz: int = 1) -> None:
+        super().__init__(node, test_id, test_in_queue, test_timeout)
         self.led_blink_secs = led_blink_secs
         self.led_blink_hz = led_blink_hz
 
-    def test_id(self) -> str:
-        return "Top button"
-
-    def test_description_preparation(self) -> str:
-        return self.html_util_ul(
-            [
-                "Place your Duckiebot on a flat surface and locate the power button on the top plate."
-            ]
-        )
+    def get_test_data(self, data: dict) -> dict:
+        data.update({
+            "led_blink_secs": self.led_blink_secs,
+            "led_blink_hz": self.led_blink_hz
+        })
+        return data
 
     def test_description_expectation(self) -> str:
         return self.html_util_ul(
@@ -40,38 +29,9 @@ class HardwareTestButton(HardwareTest):
             ]
         )
 
-    def button_event_cb(self):
-        self._button_released = True
-
-    def cb_run_test(self, _):
-        rospy.loginfo(f"[{self.test_id()}] Test service called.")
-        success = True
-
-        try:
-            # button led test
-            self._driver.led.blink_led(
-                secs_to_blink=self.led_blink_secs,
-                blink_freq_hz=self.led_blink_hz,
-            )
-            # button press event test
-            self._driver.start_test(self.button_event_cb)
-            while not self._button_released:
-                rospy.sleep(0.1)
-            # reset
-            self._button_released = False
-        except Exception as e:
-            rospy.logerr(f"[{self.test_id()}] Experienced error: {e}")
-            success = False
-
-        params = f"[{self.test_id()}] led_blink_secs = {self.led_blink_secs}, led_blink_hz = {self.led_blink_hz}"
-
-        return self.format_response_object(
-            success=success,
-            lst_blocks=[
-                self.format_obj(
-                    key="Test parameters",
-                    value_type=HardwareTestJsonParamType.STRING,
-                    value=params,
-                ),
-            ],
+    def test_description_preparation(self) -> str:
+        return self.html_util_ul(
+            [
+                "Place your Duckiebot on a flat surface and locate the power button on the top plate."
+            ]
         )

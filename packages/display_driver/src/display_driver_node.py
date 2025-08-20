@@ -16,6 +16,8 @@ from duckietown_messages.actuators.display_fragments import DisplayFragments
 from duckietown_messages.geometry_2d.roi import ROI
 from duckietown_messages.sensors.image import Image
 
+from hardware_test_oled_display import HardwareTestOledDisplay
+
 
 class DisplayDriverNode(DTROS):
 
@@ -82,8 +84,14 @@ class DisplayDriverNode(DTROS):
     async def worker(self):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
-        # display fragments
+        # wait for the queues to be ready
         self._fragments = await (switchboard / "actuator" / "display" / self._display_name / "fragments").until_ready()
+        test_in_queue = await (switchboard / "actuator" / "display" / self._display_name / "test" / "in").until_ready()
+        test_out_queue = await (switchboard / "actuator" / "display" / self._display_name / "test" / "out").until_ready()
+        # create hardware tests
+        hardware_test_oled_display = HardwareTestOledDisplay(self, test_in_queue)
+        # subscribe
+        await test_out_queue.subscribe(hardware_test_oled_display.cb_data)
         # ---
         self._loop = asyncio.get_event_loop()
         await self.join()

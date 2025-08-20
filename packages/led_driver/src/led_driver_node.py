@@ -16,6 +16,16 @@ from duckietown_messages.actuators.car_lights import CarLights
 from duckietown_messages.colors.rgba import RGBA
 from duckietown_messages.standard.header import Header
 
+from hardware_test_led import HardwareTestLED
+
+LED_DICTIONARY = {
+    "front_left": 0,
+    "middle": 1,
+    "front_right": 2,
+    "back_left": 3,
+    "back_right": 4,
+}
+
 
 class LEDDriverNode(DTROS):
     """Node for controlling LEDs.
@@ -49,14 +59,7 @@ class LEDDriverNode(DTROS):
         self._lights_name = lights_name
         # subscribers
         self.sub = rospy.Subscriber("~led_pattern", LEDPattern, self.led_cb, queue_size=1)
-        # user hardware tests
-        # self._hardware_test_front = HardwareTestLED(
-        #     self.led, info_str="front", led_ids=[0, 2, 4], idle_lighting=self._idle
-        # )
-        # self._hardware_test_back = HardwareTestLED(
-        #     self.led, info_str="back", led_ids=[1, 3], idle_lighting=self._idle
-        # )
-        # dtps publishers
+        # dtps queues
         self._pattern: Optional[DTPSContext] = None
         # event loop
         self._loop: Optional[AbstractEventLoop] = None
@@ -96,8 +99,18 @@ class LEDDriverNode(DTROS):
     async def worker(self):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
-        # leds pattern queue
-        self._pattern = await (switchboard / "actuator" / "lights" / "base" / "pattern").until_ready()
+        # wait for the queues to be ready
+        self._pattern = await (switchboard / "actuator" / "lights" / self._lights_name / "pattern").until_ready()
+        test_front_in_queue = await (switchboard / "actuator" / "lights" / self._lights_name / "test" / "front" / "in").until_ready()
+        test_front_out_queue = await (switchboard / "actuator" / "lights" / self._lights_name / "test" / "front" / "out").until_ready()
+        test_back_in_queue = await (switchboard / "actuator" / "lights" / self._lights_name / "test" / "back" / "in").until_ready()
+        test_back_out_queue = await (switchboard / "actuator" / "lights" / self._lights_name / "test" / "back" / "out").until_ready()
+        # create hardware tests
+        hardware_test_front_led = HardwareTestLED(self, "front", test_front_in_queue, [LED_DICTIONARY["front_left"], LED_DICTIONARY["front_right"]])
+        hardware_test_back_led = HardwareTestLED(self, "back", test_back_in_queue, [LED_DICTIONARY["back_left"], LED_DICTIONARY["back_right"]])
+        # subscribe
+        await test_front_out_queue.subscribe(hardware_test_front_led.cb_data)
+        await test_back_out_queue.subscribe(hardware_test_back_led.cb_data)
         # ---
         self._loop = asyncio.get_event_loop()
         await self.join()
