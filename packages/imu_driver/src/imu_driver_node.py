@@ -47,10 +47,8 @@ class IMUNode(DTROS):
     async def _publish_imu(self, data: RawData):
         # TODO: only publish if somebody is listening
         # decode data
-        imu_data : Optional[Imu] = None
-
         try:
-            imu_data = Imu.from_rawdata(data)
+            imu_data: Imu = Imu.from_rawdata(data)
         except DataDecodingError as e:
             self.logerr(f"Failed to decode an incoming message: {e.message}")
             return
@@ -62,17 +60,19 @@ class IMUNode(DTROS):
                 stamp=rospy.Time.now(),
                 frame_id=imu_data.header.frame,
             ),
-            linear_acceleration=Vector3(
+        )
+        if imu_data.linear_acceleration is not None:
+            imu_msg.linear_acceleration = Vector3(
                 x=imu_data.linear_acceleration.x,
                 y=imu_data.linear_acceleration.y,
                 z=imu_data.linear_acceleration.z,
-            ),
-            angular_velocity=Vector3(
+            )
+        if imu_data.angular_velocity is not None:
+            imu_msg.angular_velocity = Vector3(
                 x=imu_data.angular_velocity.x,
                 y=imu_data.angular_velocity.y,
                 z=imu_data.angular_velocity.z,
-                ),
-        )
+            )
 
         self.pub_imu_raw.publish(imu_msg)
 
