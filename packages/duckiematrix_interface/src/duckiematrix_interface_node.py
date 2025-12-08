@@ -100,8 +100,8 @@ class DuckieMatrixInterfaceNode(DTROS):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
         # pose and twist queues
-        pose_topic = await (switchboard / "pose").until_ready()
-        twist_topic = await (switchboard / "twist").until_ready()
+        pose_topic = await (switchboard / "state" / "pose").until_ready()
+        twist_topic = await (switchboard / "state" / "twist").until_ready()
         rospy.logdebug("Detected pose and twist topics")
         # subscribe
         await pose_topic.subscribe(self.publish_pose)
