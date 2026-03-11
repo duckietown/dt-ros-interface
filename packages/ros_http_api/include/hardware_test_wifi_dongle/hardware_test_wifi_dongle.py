@@ -1,15 +1,39 @@
-from typing import Any
+from typing import Any, Optional
 
 import netifaces
+from dt_robot_utils import get_robot_hardware, RobotHardware
 from duckiebot_hardware_test_ros_interface import AbstractHardwareTestROSInterface, HardwareTestJsonParamType
+
+
+def _detect_wifi_interface() -> str:
+    """Detect the WiFi interface name based on robot hardware.
+
+    On Jetson Orin Nano, the USB WiFi dongle uses predictable interface naming
+    (wlx* for USB, wlp* for PCI) instead of the legacy wlan0 name.
+
+    Returns:
+        The detected WiFi interface name, falling back to 'wlan0'.
+    """
+    if get_robot_hardware() == RobotHardware.JETSON_ORIN_NANO:
+        interfaces = netifaces.interfaces()
+        # prefer wlx* (USB WiFi dongles with predictable naming)
+        for iface in interfaces:
+            if iface.startswith("wlx"):
+                return iface
+        # try wlp* (PCI-based WiFi)
+        for iface in interfaces:
+            if iface.startswith("wlp"):
+                return iface
+    # default for Jetson Nano, Raspberry Pi, etc.
+    return "wlan0"
 
 
 class HardwareTestWiFiDongle(AbstractHardwareTestROSInterface):
     wifi_interface: str
 
-    def __init__(self, node: Any, test_id: str = "USB WiFi Dongle", wifi_interface: str = "wlan0") -> None:
+    def __init__(self, node: Any, test_id: str = "USB WiFi Dongle", wifi_interface: Optional[str] = None) -> None:
         super().__init__(node, test_id, service_identifier="tests/wifi")
-        self.wifi_interface = wifi_interface
+        self.wifi_interface = wifi_interface if wifi_interface is not None else _detect_wifi_interface()
 
     def get_test_data(self, _: dict) -> dict:
         return {}
@@ -17,7 +41,7 @@ class HardwareTestWiFiDongle(AbstractHardwareTestROSInterface):
     def test_description_expectation(self) -> str:
         return self.html_util_ul(
             [
-                "The IP address of the <code>wlan0</code> network interface should be displayed below.",
+                f"The IP address of the <code>{self.wifi_interface}</code> network interface should be displayed below.",
             ]
         )
 
