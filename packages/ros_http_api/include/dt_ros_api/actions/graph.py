@@ -110,5 +110,5 @@ def _graph():
             'nodes': nodes,
             'topics': topics
         })
-    except Exception as e:
-        return response_error(str(e))
+    except Exception:
+        return response_error("An internal error has occurred.")
