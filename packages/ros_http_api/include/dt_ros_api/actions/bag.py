@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import signal
 import datetime
@@ -41,15 +42,53 @@ class ROSBag:
     path: str
     status: Status
 
+TOPIC_RE = re.compile(r"^/[A-Za-z0-9_/]*[A-Za-z0-9_]$")
+
+
+def _safe_destination_dir(experiment: str):
+    base_dir = os.path.abspath(BAG_RECORDER_DIR)
+    exp = (experiment or "").strip()
+    normalized = os.path.normpath(exp.lstrip('/'))
+    if normalized in ("", ".", "..") or normalized.startswith("../"):
+        return None
+    candidate = os.path.abspath(os.path.join(base_dir, normalized))
+    if os.path.commonpath([base_dir, candidate]) != base_dir:
+        return None
+    return candidate
+
+
+def _safe_topics(raw_topics: str):
+    topics = (raw_topics or "--all").split(":")
+    if len(topics) == 1 and topics[0] == "--all":
+        return topics
+    safe = []
+    for topic in topics:
+        t = topic.strip()
+        if not t:
+            return None
+        # prevent option injection into rosbag arguments
+        if t.startswith('-'):
+            return None
+        if not TOPIC_RE.match(t):
+            return None
+        safe.append(t)
+    return safe
+
 
 @rosbag.route('/bag/record/start/<path:experiment>', methods=['POST', 'GET'])
 def _rosbag_start(experiment: str):
     # record specified topics, or all if not specified
     if request.method == "POST":
-        topics = request.form.get("topics", "--all").split(":")
+        raw_topics = request.form.get("topics", "--all")
     else:
-        topics = request.args.get("topics", "--all").split(":")
-    destination_dir = os.path.join(BAG_RECORDER_DIR, experiment.lstrip('/'))
+        raw_topics = request.args.get("topics", "--all")
+    topics = _safe_topics(raw_topics)
+    if topics is None:
+        return response_error("Invalid topics parameter.")
+
+    destination_dir = _safe_destination_dir(experiment)
+    if destination_dir is None:
+        return response_error("Invalid experiment path.")
     # make sure target directory exists
     subprocess.run(["mkdir", "-p", destination_dir])
     bag_name = datetime.datetime.now().isoformat().replace(':', '_').split('.')[0]
@@ -162,8 +201,8 @@ def _rosbag_delete(bag_name: str):
     # delete recording
     try:
         os.remove(bag.path)
-    except BaseException as e:
-        return response_error(f"Error: {str(e)}")
+    except BaseException:
+        return response_error("An internal error has occurred.")
     # return current API rosbag
     return response_ok({
         'name': bag_name
