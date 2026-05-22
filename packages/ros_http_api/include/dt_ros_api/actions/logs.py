@@ -15,7 +15,7 @@ from dt_ros_api.constants import default_node_info
 _ROBOT_HOSTNAME = get_device_hostname()
 _ROS_LOGS_DIR = "/tmp/log/latest"
 DEFAULT_NODE_INFO = default_node_info()
-_SAFE_NODE_NAME_RE = re.compile(r'^[A-Za-z0-9_]+$')
+_SAFE_NODE_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 roslogs = Blueprint('logs', __name__)
 
@@ -26,12 +26,18 @@ def _download(node_name: str):
         return response_error("Invalid node name.")
 
     file_pattern = os.path.join(_ROS_LOGS_DIR, f"{_ROBOT_HOSTNAME}-{node_name}-*.log")
-    log_files = glob.glob(file_pattern)
-    if not log_files:
+    base_dir = os.path.realpath(_ROS_LOGS_DIR)
+    safe_log_files = []
+    for fpath in glob.glob(file_pattern):
+        real_fpath = os.path.realpath(fpath)
+        if real_fpath.startswith(base_dir + os.sep):
+            safe_log_files.append(real_fpath)
+
+    if not safe_log_files:
         return response_error(f"No log file found for node '{node_name}'.")
 
     # lex order's last log file, in case there are rolling/truncated logs
-    file_path = sorted(log_files, reverse=True)[0]
+    file_path = sorted(safe_log_files, reverse=True)[0]
 
     if os.path.exists(file_path):
         # prepare to rename file when downloading
