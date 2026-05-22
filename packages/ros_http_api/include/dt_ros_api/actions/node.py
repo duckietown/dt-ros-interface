@@ -34,8 +34,8 @@ def _list():
         return response_ok({
             'nodes': sorted(KnowledgeBase.get('/node/list', []))
         })
-    except Exception as e:
-        return response_error(str(e))
+    except Exception:
+        return response_error("An internal error has occurred.")
 
 
 @rosnode.route('/node/info/<path:node>')
@@ -56,8 +56,8 @@ def _info(node):
         # get services
         info['parameters'] = KnowledgeBase.get(key('params'), [])
         return response_ok(info)
-    except Exception as e:
-        return response_error(str(e))
+    except Exception:
+        return response_error("An internal error has occurred.")
 
 
 @rosnode.route('/node/topics/<path:node>')
@@ -71,8 +71,8 @@ def _topics(node):
                 } for t_name, t_info in KnowledgeBase.get('/node/topics/%s' % node, {}).items()
             }
         })
-    except Exception as e:
-        return response_error(str(e))
+    except Exception:
+        return response_error("An internal error has occurred.")
 
 
 @rosnode.route('/node/params/<path:node>')
@@ -82,8 +82,8 @@ def _params(node):
             'node': '/' + node,
             'parameters': KnowledgeBase.get('/node/params/%s' % node, {})
         })
-    except Exception as e:
-        return response_error(str(e))
+    except Exception:
+        return response_error("An internal error has occurred.")
 
 
 @rosnode.route('/node/services/<path:node>')
@@ -93,5 +93,5 @@ def _services(node):
             'node': '/' + node,
             'services': KnowledgeBase.get('/node/services/%s' % node, {})
         })
-    except Exception as e:
-        return response_error(str(e))
+    except Exception:
+        return response_error("An internal error has occurred.")

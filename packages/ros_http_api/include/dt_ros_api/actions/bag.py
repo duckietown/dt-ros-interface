@@ -201,8 +201,8 @@ def _rosbag_delete(bag_name: str):
     # delete recording
     try:
         os.remove(bag.path)
-    except BaseException as e:
-        return response_error(f"Error: {str(e)}")
+    except BaseException:
+        return response_error("An internal error has occurred.")
     # return current API rosbag
     return response_ok({
         'name': bag_name
