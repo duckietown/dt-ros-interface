@@ -15,16 +15,6 @@
 
       <!-- Load additional MAVROS configurations from YAML file -->
       <rosparam command="load" file="$(find mavros)/launch/apm_config.yaml" />
-      <remap from="~/battery" to="flight_controller_node/battery" />
-      <!-- Remap topics -->
-      <remap from="~/rc/override" to="flight_controller_node/commands" />
-      <remap from="~/rc/in" to="flight_controller_node/commands/executed" />
-      <remap from="~/state" to="flight_controller_node/mode/current" />
-      <remap from="~/imu/data" to="imu_node/data" />
-
-      <!-- Remap services -->
-      <remap from="~/set_mode" to="flight_controller_node/set_mode" />
-      <remap from="~/cmd/arming" to="flight_controller_node/arm" />
     </node>
   </group>
 </launch>
