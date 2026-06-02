@@ -18,9 +18,8 @@
         <arg name="name" value="bottom"/>
     </include>
 
-    <!-- TODO: add missing nodes -->
     <!-- Flight controller node -->
-    <include file="$(find flight_controller_driver)/launch/flight_controller_node.launch">
+    <include file="$(find ardupilot_driver)/launch/mavros.launch">
         <arg name="veh" value="$(arg veh)"/>
     </include>
 
