@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+import os
 from typing import Optional
 
 import rospy
@@ -37,6 +38,39 @@ class CameraNode(DTROS):
         )
         self._robot_name = get_robot_name()
         self._camera_name = camera_name
+        self._camera_shm_path = os.environ.get("DT_CAMERA_SHM_IN_PATH", "").strip()
+        self._shm_topic_paths = {
+            "jpeg": self._camera_shm_path,
+            "info": self._topic_shm_path(self._camera_shm_path, ".info"),
+            "parameters": self._topic_shm_path(
+                self._camera_shm_path,
+                ".parameters",
+            ),
+        }
+        topic_shm_only_variables = {
+            "jpeg": "DT_CAMERA_SHM_ONLY_JPEG",
+            "info": "DT_CAMERA_SHM_ONLY_INFO",
+            "parameters": "DT_CAMERA_SHM_ONLY_PARAMETERS",
+        }
+        self._shm_topic_only = {}
+        for topic_name, shm_path in self._shm_topic_paths.items():
+            shm_only_variable = topic_shm_only_variables[topic_name]
+            shm_only_requested = self._read_boolean_environment(
+                shm_only_variable,
+                False,
+            )
+            shm_is_enabled = shm_path != ""
+            if shm_only_requested and not shm_is_enabled:
+                self.logwarn(
+                    f"Ignoring {shm_only_variable}=1 because "
+                    "DT_CAMERA_SHM_IN_PATH is not configured."
+                )
+            self._shm_topic_only[topic_name] = shm_is_enabled and shm_only_requested
+        self._topic_handlers = {
+            "jpeg": self.publish,
+            "info": self.save_camera_info,
+            "parameters": self.save_camera_intrinsics,
+        }
         # user hardware test
         # self._hardware_test = HardwareTestCamera()
         self.camera_info: Optional[Camera] = None
@@ -64,20 +98,45 @@ class CameraNode(DTROS):
         # ---
         self.loginfo("Initialized.")
 
-    async def publish(self, data: RawData):
-        # Update the timestamp
-        self.time = rospy.Time.now()
+    def _read_boolean_environment(self, variable_name: str, default: bool) -> bool:
+        """Read a ``0`` or ``1`` transport option and warn for invalid values."""
+        default_value = "1" if default else "0"
+        variable_value = os.environ.get(variable_name, default_value)
+        variable_value = variable_value.strip()
+        if variable_value not in ("0", "1"):
+            self.logwarn(
+                f"{variable_name} must be '0' or '1'; using '{default_value}'."
+            )
+            return default
+        return variable_value == "1"
 
-        # TODO: only publish if somebody is listening
+    @staticmethod
+    def _topic_shm_path(base_path: str, suffix: str) -> str:
+        """Derive a topic channel path from the compatible JPEG base path."""
+        if not base_path:
+            return ""
+        return base_path + suffix
+
+    def _source_timestamp_to_ros_time(self, timestamp: Optional[float]):
+        """Preserve the source camera timestamp in an outgoing ROS header."""
+        if timestamp is None:
+            return rospy.Time.now()
+        try:
+            return rospy.Time.from_sec(float(timestamp))
+        except (TypeError, ValueError):
+            self.logwarn("Camera image has an invalid source timestamp; using ROS publish time.")
+            return rospy.Time.now()
+
+    async def publish(self, data: RawData):
         try:
             jpeg: CompressedImage = CompressedImage.from_rawdata(data)
         except DataDecodingError as e:
             self.logerr(f"Failed to decode an incoming message: {e.message}")
             return
+        self.time = self._source_timestamp_to_ros_time(jpeg.header.timestamp)
         # create CompressedImage message
         msg: ROSCompressedImage = ROSCompressedImage(
             header=rospy.Header(
-                # TODO: reuse the timestamp from the incoming message
                 stamp=self.time,
                 frame_id=jpeg.header.frame,
             ),
@@ -94,7 +153,7 @@ class CameraNode(DTROS):
 
     async def save_camera_intrinsics(self, rdata: RawData):
         try:
-            self.camera_intrinsics: CameraIntrinsicCalibration = CameraIntrinsicCalibration.from_rawdata(rdata)
+            self.camera_intrinsics = CameraIntrinsicCalibration.from_rawdata(rdata)
         except DataDecodingError as e:
             self.logerr(f"Failed to decode an incoming message: {e.message}")
             return
@@ -143,23 +202,33 @@ class CameraNode(DTROS):
     async def worker(self):
         # create switchboard context
         switchboard = (await context("switchboard")).navigate(self._robot_name)
-        # wait for the queues to be ready
-        jpeg = await (switchboard / "sensor" / "camera" / self._camera_name / "jpeg").until_ready()
-        parameters = await (switchboard / "sensor" / "camera" / self._camera_name / "parameters").until_ready()
-        info = await (switchboard / "sensor" / "camera" / self._camera_name / "info").until_ready()
-
-        # Enable dynamic reconnection to the topic
-        jpeg = jpeg.configure(ContextConfig(patient=True))
-        parameters = parameters.configure(ContextConfig(patient=True))
-        info.configure(ContextConfig(patient=True))
-        # create hardware test
-        HardwareTestCamera(self)
-        # subscribe
-        await info.subscribe(self.save_camera_info)
-        await parameters.subscribe(self.save_camera_intrinsics)
-        await jpeg.subscribe(self.publish)
-        # ---
-        await self.join()
+        camera = switchboard / "sensor" / "camera" / self._camera_name
+        subscriptions = []
+        try:
+            for topic_name, shm_path in self._shm_topic_paths.items():
+                shm_only = self._shm_topic_only[topic_name]
+                topic_context = camera / topic_name
+                if shm_only:
+                    self.loginfo(
+                        f"Using camera {topic_name} SHM input at '{shm_path}'."
+                    )
+                else:
+                    topic_context = await topic_context.until_ready()
+                    topic_context = topic_context.configure(
+                        ContextConfig(patient=True)
+                    )
+                subscription = await topic_context.subscribe(
+                    self._topic_handlers[topic_name],
+                    shm_path=shm_path or None,
+                    shm_only=shm_only,
+                )
+                subscriptions.append(subscription)
+            # create hardware test
+            HardwareTestCamera(self)
+            await self.join()
+        finally:
+            for subscription in subscriptions:
+                await subscription.unsubscribe()
     
     async def join(self):
         while not self.is_shutdown:
